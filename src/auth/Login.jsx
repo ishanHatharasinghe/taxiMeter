@@ -2,25 +2,16 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { auth } from "../firebaseConfig";
 import { FcGoogle } from "react-icons/fc";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signInWithPhoneNumber,
-  RecaptchaVerifier
-} from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { googleProvider } from "../firebaseConfig";
 import { useAuth } from "./AuthProvider";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [phoneVerificationSent, setPhoneVerificationSent] = useState(false);
-  const [verificationCode, setVerificationCode] = useState("");
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [loginMethod, setLoginMethod] = useState("email"); // email, phone, or google
+  const [loginMethod, setLoginMethod] = useState("email"); // email or google
 
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -30,19 +21,6 @@ const Login = () => {
       navigate("/");
     }
   }, [currentUser, navigate]);
-
-  useEffect(() => {
-    // Setup recaptcha when component mounts
-    if (loginMethod === "phone" && !window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        {
-          size: "invisible"
-        }
-      );
-    }
-  }, [loginMethod]);
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -77,49 +55,6 @@ const Login = () => {
     }
   };
 
-  const handlePhoneSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
-      const result = await signInWithPhoneNumber(
-        auth,
-        formattedPhone,
-        window.recaptchaVerifier
-      );
-      setConfirmationResult(result);
-      setPhoneVerificationSent(true);
-      setLoading(false);
-    } catch (err) {
-      setError(
-        err.code === "auth/invalid-phone-number"
-          ? "Please enter a valid phone number with country code (e.g. +1234567890)"
-          : err.message
-      );
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyCode = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
-    try {
-      await confirmationResult.confirm(verificationCode);
-      navigate("/dashboard");
-    } catch (err) {
-      setError(
-        err.code === "auth/invalid-verification-code"
-          ? "Invalid verification code. Please try again."
-          : err.message
-      );
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-yellow-400 to-amber-500 flex flex-col items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-2xl p-8 relative overflow-hidden">
@@ -144,7 +79,7 @@ const Login = () => {
           >
             <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5H15V3H9v2H6.5c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" />
           </svg>
-          <h1 className="text-2xl font-bold text-gray-800">Driver Login</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Login</h1>
         </div>
 
         {/* Login method tabs */}
@@ -158,16 +93,6 @@ const Login = () => {
             }`}
           >
             Email
-          </button>
-          <button
-            onClick={() => setLoginMethod("phone")}
-            className={`flex-1 py-2 font-medium text-sm ${
-              loginMethod === "phone"
-                ? "text-yellow-600 border-b-2 border-yellow-500"
-                : "text-gray-600 hover:text-gray-800"
-            }`}
-          >
-            Phone
           </button>
           <button
             onClick={() => setLoginMethod("google")}
@@ -306,159 +231,6 @@ const Login = () => {
               )}
             </button>
           </form>
-        )}
-
-        {/* Phone Login */}
-        {loginMethod === "phone" && (
-          <>
-            {!phoneVerificationSent ? (
-              <form onSubmit={handlePhoneSubmit}>
-                <div className="mb-6">
-                  <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="phone"
-                  >
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg
-                        className="h-5 w-5 text-gray-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                      </svg>
-                    </div>
-                    <input
-                      type="tel"
-                      id="phone"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                      placeholder="+1234567890"
-                      required
-                    />
-                  </div>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Include country code (e.g., +1 for US/Canada)
-                  </p>
-                </div>
-                <div id="recaptcha-container"></div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 flex justify-center items-center"
-                >
-                  {loading ? (
-                    <>
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Sending code...
-                    </>
-                  ) : (
-                    "Send Verification Code"
-                  )}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyCode}>
-                <div className="mb-6">
-                  <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="code"
-                  >
-                    Verification Code
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg
-                        className="h-5 w-5 text-gray-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 2a1 1 0 00-1 1v1a1 1 0 002 0V3a1 1 0 00-1-1zM4 4h3a3 3 0 006 0h3a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2zm2.5 7a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm2.45 4a2.5 2.5 0 10-4.9 0h4.9zM12 9a1 1 0 100 2h3a1 1 0 100-2h-3zm-1 4a1 1 0 011-1h2a1 1 0 110 2h-2a1 1 0 01-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <input
-                      type="text"
-                      id="code"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                      placeholder="Enter 6-digit code"
-                      required
-                    />
-                  </div>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Enter the 6-digit code sent to {phone}
-                  </p>
-                </div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 flex justify-center items-center"
-                >
-                  {loading ? (
-                    <>
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Verifying...
-                    </>
-                  ) : (
-                    "Verify & Login"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPhoneVerificationSent(false)}
-                  className="w-full mt-4 text-gray-600 hover:text-gray-800 text-sm font-medium"
-                >
-                  ← Back to phone number
-                </button>
-              </form>
-            )}
-          </>
         )}
 
         {/* Google Login */}

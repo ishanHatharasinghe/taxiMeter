@@ -17,16 +17,11 @@ const Signup = () => {
     phone: "",
     password: "",
     confirmPassword: "",
-    driverLicense: "",
-    carModel: "",
-    carYear: "",
-    licensePlate: "",
     agreeToTerms: false
   });
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState(1);
   const [generalError, setGeneralError] = useState("");
 
   const navigate = useNavigate();
@@ -38,7 +33,7 @@ const Signup = () => {
     }
   }, [currentUser, navigate]);
 
-  const validateStep1 = () => {
+  const validateForm = () => {
     const newErrors = {};
 
     if (!formData.firstName.trim())
@@ -53,22 +48,6 @@ const Signup = () => {
       newErrors.password = "Password must be at least 6 characters";
     if (formData.password !== formData.confirmPassword)
       newErrors.confirmPassword = "Passwords do not match";
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateStep2 = () => {
-    const newErrors = {};
-
-    if (!formData.driverLicense.trim())
-      newErrors.driverLicense = "Driver license number is required";
-    if (!formData.carModel.trim()) newErrors.carModel = "Car model is required";
-    if (!formData.carYear.trim()) newErrors.carYear = "Car year is required";
-    else if (!/^\d{4}$/.test(formData.carYear))
-      newErrors.carYear = "Enter a valid year (e.g., 2022)";
-    if (!formData.licensePlate.trim())
-      newErrors.licensePlate = "License plate is required";
     if (!formData.agreeToTerms)
       newErrors.agreeToTerms = "You must agree to the terms and conditions";
 
@@ -92,20 +71,10 @@ const Signup = () => {
     }
   };
 
-  const handleNextStep = () => {
-    if (validateStep1()) {
-      setStep(2);
-    }
-  };
-
-  const handlePrevStep = () => {
-    setStep(1);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateStep2()) return;
+    if (!validateForm()) return;
 
     setGeneralError("");
     setLoading(true);
@@ -124,19 +93,13 @@ const Signup = () => {
       });
 
       // Store additional user info in Firestore
-      await setDoc(doc(db, "drivers", user.uid), {
+      await setDoc(doc(database, "users", user.uid), {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
         phone: formData.phone,
-        driverLicense: formData.driverLicense,
-        vehicle: {
-          model: formData.carModel,
-          year: formData.carYear,
-          licensePlate: formData.licensePlate
-        },
         createdAt: new Date().toISOString(),
-        status: "active"
+        role: "user"
       });
 
       // Send verification email
@@ -178,38 +141,7 @@ const Signup = () => {
           >
             <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5H15V3H9v2H6.5c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z" />
           </svg>
-          <h1 className="text-2xl font-bold text-gray-800">
-            {step === 1 ? "Driver Registration" : "Vehicle Information"}
-          </h1>
-        </div>
-
-        {/* Progress indicator */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="w-full flex items-center">
-            <div
-              className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                step >= 1
-                  ? "bg-yellow-500 text-white"
-                  : "bg-gray-200 text-gray-600"
-              } shrink-0`}
-            >
-              1
-            </div>
-            <div
-              className={`flex-1 h-1 mx-2 ${
-                step >= 2 ? "bg-yellow-500" : "bg-gray-200"
-              }`}
-            ></div>
-            <div
-              className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                step >= 2
-                  ? "bg-yellow-500 text-white"
-                  : "bg-gray-200 text-gray-600"
-              } shrink-0`}
-            >
-              2
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-800">Create Account</h1>
         </div>
 
         {/* Error message */}
@@ -233,403 +165,259 @@ const Signup = () => {
         )}
 
         <form onSubmit={handleSubmit}>
-          {/* Step 1: Personal Information */}
-          {step === 1 && (
-            <>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="firstName"
-                  >
-                    First Name
-                  </label>
-                  <input
-                    type="text"
-                    id="firstName"
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border ${
-                      errors.firstName ? "border-red-500" : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="Ishan"
-                  />
-                  {errors.firstName && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.firstName}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="lastName"
-                  >
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    id="lastName"
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border ${
-                      errors.lastName ? "border-red-500" : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="Nilaksha"
-                  />
-                  {errors.lastName && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.lastName}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label
-                  className="block text-gray-700 font-medium mb-2"
-                  htmlFor="email"
-                >
-                  Email
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
-                      <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    className={`w-full pl-10 pr-4 py-3 border ${
-                      errors.email ? "border-red-500" : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="xxxxx@example.com"
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <label
-                  className="block text-gray-700 font-medium mb-2"
-                  htmlFor="phone"
-                >
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className={`w-full pl-10 pr-4 py-3 border ${
-                      errors.phone ? "border-red-500" : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="+94 7xxxxxxxx"
-                  />
-                </div>
-                {errors.phone && (
-                  <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
-                )}
-              </div>
-
-              <div className="mb-4">
-                <label
-                  className="block text-gray-700 font-medium mb-2"
-                  htmlFor="password"
-                >
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`w-full pl-10 pr-4 py-3 border ${
-                      errors.password ? "border-red-500" : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="••••••••"
-                  />
-                </div>
-                {errors.password && (
-                  <p className="text-red-500 text-sm mt-1">{errors.password}</p>
-                )}
-              </div>
-
-              <div className="mb-6">
-                <label
-                  className="block text-gray-700 font-medium mb-2"
-                  htmlFor="confirmPassword"
-                >
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className={`w-full pl-10 pr-4 py-3 border ${
-                      errors.confirmPassword
-                        ? "border-red-500"
-                        : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="••••••••"
-                  />
-                </div>
-                {errors.confirmPassword && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.confirmPassword}
-                  </p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={handleNextStep}
-                className="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <label
+                className="block text-gray-700 font-medium mb-2"
+                htmlFor="firstName"
               >
-                Next: Vehicle Information
-              </button>
-            </>
-          )}
+                First Name
+              </label>
+              <input
+                type="text"
+                id="firstName"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${
+                  errors.firstName ? "border-red-500" : "border-gray-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
+                placeholder="Ishan"
+              />
+              {errors.firstName && (
+                <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
+              )}
+            </div>
 
-          {/* Step 2: Vehicle Information */}
-          {step === 2 && (
-            <>
-              <div className="mb-4">
-                <label
-                  className="block text-gray-700 font-medium mb-2"
-                  htmlFor="driverLicense"
+            <div>
+              <label
+                className="block text-gray-700 font-medium mb-2"
+                htmlFor="lastName"
+              >
+                Last Name
+              </label>
+              <input
+                type="text"
+                id="lastName"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                className={`w-full px-4 py-3 border ${
+                  errors.lastName ? "border-red-500" : "border-gray-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
+                placeholder="Nilaksha"
+              />
+              {errors.lastName && (
+                <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 font-medium mb-2"
+              htmlFor="email"
+            >
+              Email
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
                 >
-                  Driver License Number
-                </label>
-                <input
-                  type="text"
-                  id="driverLicense"
-                  name="driverLicense"
-                  value={formData.driverLicense}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${
-                    errors.driverLicense ? "border-red-500" : "border-gray-300"
-                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                  placeholder="DL12345678"
-                />
-                {errors.driverLicense && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.driverLicense}
-                  </p>
-                )}
+                  <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                  <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                </svg>
               </div>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-3 border ${
+                  errors.email ? "border-red-500" : "border-gray-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
+                placeholder="xxxxx@example.com"
+              />
+            </div>
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+            )}
+          </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="carModel"
-                  >
-                    Car Model
-                  </label>
-                  <input
-                    type="text"
-                    id="carModel"
-                    name="carModel"
-                    value={formData.carModel}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border ${
-                      errors.carModel ? "border-red-500" : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="Toyota Camry"
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 font-medium mb-2"
+              htmlFor="phone"
+            >
+              Phone Number
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                </svg>
+              </div>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-3 border ${
+                  errors.phone ? "border-red-500" : "border-gray-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
+                placeholder="+94 7xxxxxxxx"
+              />
+            </div>
+            {errors.phone && (
+              <p className="text-red-500 text-sm mt-1">{errors.phone}</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label
+              className="block text-gray-700 font-medium mb-2"
+              htmlFor="password"
+            >
+              Password
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                    clipRule="evenodd"
                   />
-                  {errors.carModel && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.carModel}
-                    </p>
-                  )}
-                </div>
+                </svg>
+              </div>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-3 border ${
+                  errors.password ? "border-red-500" : "border-gray-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
+                placeholder="••••••••"
+              />
+            </div>
+            {errors.password && (
+              <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+            )}
+          </div>
 
-                <div>
-                  <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="carYear"
-                  >
-                    Car Year
-                  </label>
-                  <input
-                    type="text"
-                    id="carYear"
-                    name="carYear"
-                    value={formData.carYear}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 border ${
-                      errors.carYear ? "border-red-500" : "border-gray-300"
-                    } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                    placeholder="2022"
+          <div className="mb-6">
+            <label
+              className="block text-gray-700 font-medium mb-2"
+              htmlFor="confirmPassword"
+            >
+              Confirm Password
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg
+                  className="h-5 w-5 text-gray-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                    clipRule="evenodd"
                   />
-                  {errors.carYear && (
-                    <p className="text-red-500 text-sm mt-1">
-                      {errors.carYear}
-                    </p>
-                  )}
-                </div>
+                </svg>
               </div>
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-3 border ${
+                  errors.confirmPassword ? "border-red-500" : "border-gray-300"
+                } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
+                placeholder="••••••••"
+              />
+            </div>
+            {errors.confirmPassword && (
+              <p className="text-red-500 text-sm mt-1">
+                {errors.confirmPassword}
+              </p>
+            )}
+          </div>
 
-              <div className="mb-6">
-                <label
-                  className="block text-gray-700 font-medium mb-2"
-                  htmlFor="licensePlate"
+          <div className="mb-6">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                name="agreeToTerms"
+                checked={formData.agreeToTerms}
+                onChange={handleChange}
+                className="h-5 w-5 text-yellow-500 rounded focus:ring-yellow-500"
+              />
+              <span className="ml-2 text-gray-700">
+                I agree to the{" "}
+                <a href="#" className="text-yellow-600 hover:text-yellow-800">
+                  Terms and Conditions
+                </a>{" "}
+                and{" "}
+                <a href="#" className="text-yellow-600 hover:text-yellow-800">
+                  Privacy Policy
+                </a>
+              </span>
+            </label>
+            {errors.agreeToTerms && (
+              <p className="text-red-500 text-sm mt-1">{errors.agreeToTerms}</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-black hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 flex justify-center items-center"
+          >
+            {loading ? (
+              <>
+                <svg
+                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
                 >
-                  License Plate
-                </label>
-                <input
-                  type="text"
-                  id="licensePlate"
-                  name="licensePlate"
-                  value={formData.licensePlate}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border ${
-                    errors.licensePlate ? "border-red-500" : "border-gray-300"
-                  } rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500`}
-                  placeholder="ABC1234"
-                />
-                {errors.licensePlate && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.licensePlate}
-                  </p>
-                )}
-              </div>
-
-              <div className="mb-6">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="agreeToTerms"
-                    checked={formData.agreeToTerms}
-                    onChange={handleChange}
-                    className="h-5 w-5 text-yellow-500 rounded focus:ring-yellow-500"
-                  />
-                  <span className="ml-2 text-gray-700">
-                    I agree to the{" "}
-                    <a
-                      href="#"
-                      className="text-yellow-600 hover:text-yellow-800"
-                    >
-                      Terms and Conditions
-                    </a>{" "}
-                    and{" "}
-                    <a
-                      href="#"
-                      className="text-yellow-600 hover:text-yellow-800"
-                    >
-                      Privacy Policy
-                    </a>
-                  </span>
-                </label>
-                {errors.agreeToTerms && (
-                  <p className="text-red-500 text-sm mt-1">
-                    {errors.agreeToTerms}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex space-x-4">
-                <button
-                  type="button"
-                  onClick={handlePrevStep}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
-                >
-                  Back
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-black hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50 flex justify-center items-center"
-                >
-                  {loading ? (
-                    <>
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Creating...
-                    </>
-                  ) : (
-                    "Create Account"
-                  )}
-                </button>
-              </div>
-            </>
-          )}
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Creating Account...
+              </>
+            ) : (
+              "Create Account"
+            )}
+          </button>
         </form>
 
         <div className="mt-8 text-center text-gray-600 border-t border-gray-200 pt-6">

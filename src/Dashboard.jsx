@@ -9,6 +9,30 @@ import {
   remove,
   update
 } from "firebase/database";
+import { Bar, Line } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend
+} from "chart.js";
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 // Firebase configuration
 const firebaseConfig = {
@@ -30,8 +54,7 @@ const database = getDatabase(app);
 function Dashboard({ handleLogout }) {
   const [fuelData, setFuelData] = useState([]);
   const [formData, setFormData] = useState({
-    name: "",
-    address: "",
+    type: "",
     price: ""
   });
   const [editingId, setEditingId] = useState(null);
@@ -42,17 +65,33 @@ function Dashboard({ handleLogout }) {
     direction: "ascending"
   });
   const [filterText, setFilterText] = useState("");
+  const [selectedFuelType, setSelectedFuelType] = useState(null);
+  const [priceHistory, setPriceHistory] = useState([]);
+
+  // Common fuel types
+  const fuelTypes = [
+    "Petrol 92",
+    "Petrol 95",
+    "Diesel",
+    "Super Diesel",
+    "Kerosene",
+    "Auto Gas"
+  ];
 
   // Fetch data from Firebase
   useEffect(() => {
-    const fuelDataRef = ref(database, "fuel_data");
+    const fuelDataRef = ref(database, "fuel_prices");
     onValue(fuelDataRef, (snapshot) => {
       const data = snapshot.val();
       setIsLoading(false);
       if (data) {
         const dataArray = Object.entries(data).map(([id, value]) => ({
           id,
-          ...value
+          ...value,
+          // For price history, we'll store each update as an array
+          priceHistory: value.priceHistory || [
+            { price: value.price, date: new Date().toISOString() }
+          ]
         }));
         setFuelData(dataArray);
       } else {
@@ -60,6 +99,18 @@ function Dashboard({ handleLogout }) {
       }
     });
   }, []);
+
+  // Load price history when a fuel type is selected
+  useEffect(() => {
+    if (selectedFuelType) {
+      const selectedItem = fuelData.find(
+        (item) => item.id === selectedFuelType
+      );
+      if (selectedItem && selectedItem.priceHistory) {
+        setPriceHistory(selectedItem.priceHistory);
+      }
+    }
+  }, [selectedFuelType, fuelData]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -70,27 +121,48 @@ function Dashboard({ handleLogout }) {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", address: "", price: "" });
+    setFormData({ type: "", price: "" });
     setEditingId(null);
     setIsModalOpen(false);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.address || !formData.price) return;
+    if (!formData.type || !formData.price) return;
+
+    const priceFloat = parseFloat(formData.price);
+    if (isNaN(priceFloat)) return;
+
+    const newData = {
+      type: formData.type,
+      price: priceFloat.toFixed(2),
+      updatedAt: new Date().toISOString()
+    };
 
     if (editingId) {
-      // Update existing record
-      const fuelRef = ref(database, `fuel_data/${editingId}`);
-      update(fuelRef, formData)
+      // Update existing record - preserve price history
+      const existingItem = fuelData.find((item) => item.id === editingId);
+      const updatedPriceHistory = [
+        ...(existingItem.priceHistory || []),
+        { price: priceFloat, date: new Date().toISOString() }
+      ];
+
+      const fuelRef = ref(database, `fuel_prices/${editingId}`);
+      update(fuelRef, {
+        ...newData,
+        priceHistory: updatedPriceHistory
+      })
         .then(() => {
           resetForm();
         })
         .catch((error) => console.error("Error updating data: ", error));
     } else {
-      // Add new record
-      const fuelRef = ref(database, "fuel_data");
-      push(fuelRef, formData)
+      // Add new record with initial price history
+      const fuelRef = ref(database, "fuel_prices");
+      push(fuelRef, {
+        ...newData,
+        priceHistory: [{ price: priceFloat, date: new Date().toISOString() }]
+      })
         .then(() => {
           resetForm();
         })
@@ -100,8 +172,7 @@ function Dashboard({ handleLogout }) {
 
   const handleEdit = (item) => {
     setFormData({
-      name: item.name,
-      address: item.address,
+      type: item.type,
       price: item.price
     });
     setEditingId(item.id);
@@ -109,8 +180,8 @@ function Dashboard({ handleLogout }) {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this record?")) {
-      const fuelRef = ref(database, `fuel_data/${id}`);
+    if (window.confirm("Are you sure you want to delete this fuel type?")) {
+      const fuelRef = ref(database, `fuel_prices/${id}`);
       remove(fuelRef).catch((error) =>
         console.error("Error deleting data: ", error)
       );
@@ -131,10 +202,8 @@ function Dashboard({ handleLogout }) {
     let filteredData = [...fuelData];
 
     if (filterText) {
-      filteredData = filteredData.filter(
-        (item) =>
-          item.name.toLowerCase().includes(filterText.toLowerCase()) ||
-          item.address.toLowerCase().includes(filterText.toLowerCase())
+      filteredData = filteredData.filter((item) =>
+        item.type.toLowerCase().includes(filterText.toLowerCase())
       );
     }
 
@@ -159,21 +228,144 @@ function Dashboard({ handleLogout }) {
     return sortConfig.direction === "ascending" ? "↑" : "↓";
   };
 
+  // Prepare data for bar chart
+  const barChartData = {
+    labels: fuelData.map((item) => item.type),
+    datasets: [
+      {
+        label: "Current Price (Rs/L)",
+        data: fuelData.map((item) => parseFloat(item.price)),
+        backgroundColor: fuelData.map(
+          (_, index) => `hsl(${(index * 360) / fuelData.length}, 70%, 50%)`
+        ),
+        borderColor: fuelData.map(
+          (_, index) => `hsl(${(index * 360) / fuelData.length}, 70%, 30%)`
+        ),
+        borderWidth: 1
+      }
+    ]
+  };
+
+  // Prepare data for line chart (price history)
+  const lineChartData = {
+    labels: priceHistory.map((_, index) => `Update ${index + 1}`),
+    datasets: [
+      {
+        label: "Price History (Rs/L)",
+        data: priceHistory.map((item) => parseFloat(item.price)),
+        fill: false,
+        backgroundColor: "rgba(75, 192, 192, 0.2)",
+        borderColor: "rgba(75, 192, 192, 1)",
+        tension: 0.1
+      }
+    ]
+  };
+
+  const barChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top"
+      },
+      title: {
+        display: true,
+        text: "Current Fuel Prices Comparison"
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        title: {
+          display: true,
+          text: "Price (Rs/L)"
+        }
+      }
+    }
+  };
+
+  const lineChartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top"
+      },
+      title: {
+        display: true,
+        text: selectedFuelType
+          ? `Price History for ${
+              fuelData.find((item) => item.id === selectedFuelType)?.type
+            }`
+          : "Price History"
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        title: {
+          display: true,
+          text: "Price (Rs/L)"
+        }
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-yellow-50 to-amber-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white">
       {/* Header */}
-      <header className="bg-gradient-to-r from-yellow-500 to-amber-600 text-white py-6 shadow-lg">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Taxi Fuel Price Manager</h1>
-            <p className="text-white/80 mt-1">
-              Track and manage fuel prices for taxi services
-            </p>
+      <header className="bg-gradient-to-r from-yellow-500 to-yellow-400 text-black py-4 lg:py-6 shadow-xl sticky top-0 z-30">
+        <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center">
+          <div className="flex items-center mb-4 md:mb-0">
+            <div className="mr-4 hidden sm:block">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-10 w-10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="1" y="14" width="7" height="7" rx="1" />
+                <rect x="16" y="14" width="7" height="7" rx="1" />
+                <rect x="7" y="10" width="10" height="4" rx="1" />
+                <circle cx="8.5" cy="17.5" r="1.5" />
+                <circle cx="19.5" cy="17.5" r="1.5" />
+                <path d="M2 5h20" />
+                <path d="M12 5V3" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold">
+                Fuel Prices Registry
+              </h1>
+              <p className="text-black/80 text-sm md:text-base">
+                Track and compare fuel prices over time
+              </p>
+            </div>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-black text-yellow-400 hover:bg-gray-800 px-4 py-2 rounded-lg font-medium flex items-center justify-center shadow-md transition duration-200"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 mr-2"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Add Fuel Type
+            </button>
             <button
               onClick={handleLogout}
-              className="bg-white text-red-600 hover:bg-red-50 px-5 py-2 rounded-lg font-medium flex items-center shadow-md transition duration-200 transform hover:scale-105"
+              className="bg-black/30 hover:bg-black/50 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center shadow-md transition duration-200"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -193,40 +385,22 @@ function Dashboard({ handleLogout }) {
               </svg>
               Logout
             </button>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-white text-amber-600 hover:bg-amber-50 px-5 py-2 rounded-lg font-medium flex items-center shadow-md transition duration-200 transform hover:scale-105"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-5 w-5 mr-2"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Add Fuel Station
-            </button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         {/* Modal */}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-4 animate-fadeIn">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 border border-slate-700 rounded-xl shadow-2xl w-full max-w-md p-6 m-4 animate-fadeIn">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">
-                  {editingId ? "Edit Fuel Station" : "Add New Fuel Station"}
+                <h2 className="text-2xl font-bold text-white">
+                  {editingId ? "Edit Fuel Price" : "Add New Fuel Type"}
                 </h2>
                 <button
                   onClick={resetForm}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-400 hover:text-white"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -248,50 +422,50 @@ function Dashboard({ handleLogout }) {
               <form onSubmit={handleSubmit}>
                 <div className="mb-4">
                   <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="name"
+                    className="block text-gray-300 font-medium mb-2"
+                    htmlFor="type"
                   >
-                    Station Name
+                    Fuel Type
                   </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                    placeholder="Enter station name"
-                    required
-                  />
-                </div>
-                <div className="mb-4">
-                  <label
-                    className="block text-gray-700 font-medium mb-2"
-                    htmlFor="address"
-                  >
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                    placeholder="Enter station address"
-                    required
-                  />
+                  {editingId ? (
+                    <input
+                      type="text"
+                      id="type"
+                      name="type"
+                      value={formData.type}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      required
+                      readOnly
+                    />
+                  ) : (
+                    <select
+                      id="type"
+                      name="type"
+                      value={formData.type}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      required
+                    >
+                      <option value="">Select fuel type</option>
+                      {fuelTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div className="mb-6">
                   <label
-                    className="block text-gray-700 font-medium mb-2"
+                    className="block text-gray-300 font-medium mb-2"
                     htmlFor="price"
                   >
-                    Fuel Price (per liter)
+                    Price (per liter)
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500">Rs.</span>
+                      <span className="text-gray-400">Rs.</span>
                     </div>
                     <input
                       type="number"
@@ -301,26 +475,26 @@ function Dashboard({ handleLogout }) {
                       onChange={handleInputChange}
                       step="0.01"
                       min="0"
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                      className="w-full pl-12 pr-12 py-3 bg-slate-700 text-white border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                       placeholder="0.00"
                       required
                     />
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      <span className="text-gray-500">/L</span>
+                      <span className="text-gray-400">/L</span>
                     </div>
                   </div>
                 </div>
                 <div className="flex space-x-3">
                   <button
                     type="submit"
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition duration-200"
                   >
-                    {editingId ? "Update Station" : "Add Station"}
+                    {editingId ? "Update Price" : "Add Fuel Type"}
                   </button>
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-200"
+                    className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200"
                   >
                     Cancel
                   </button>
@@ -331,214 +505,317 @@ function Dashboard({ handleLogout }) {
         )}
 
         {/* Dashboard */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4 md:mb-0">
-              Fuel Price Dashboard
-            </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Fuel Prices Table */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-xl overflow-hidden lg:col-span-2">
+            <div className="p-4 md:p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+                <div className="flex items-center space-x-3 mb-4 md:mb-0">
+                  <div className="p-2 bg-yellow-500/20 rounded-lg">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-yellow-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl md:text-2xl font-bold text-white">
+                    Fuel Prices Registry
+                  </h2>
+                </div>
 
-            {/* Search bar */}
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg
-                  className="h-5 w-5 text-gray-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
-                    clipRule="evenodd"
+                {/* Search bar */}
+                <div className="relative w-full md:w-auto">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg
+                      className="h-5 w-5 text-gray-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search fuel types..."
+                    className="pl-10 pr-4 py-2 w-full md:w-64 bg-slate-700 border border-slate-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                    value={filterText}
+                    onChange={(e) => setFilterText(e.target.value)}
                   />
-                </svg>
+                </div>
               </div>
-              <input
-                type="text"
-                placeholder="Search stations..."
-                className="pl-10 pr-4 py-2 w-full md:w-64 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
-              />
+
+              {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
+                </div>
+              ) : fuelData.length === 0 ? (
+                <div className="bg-slate-700/50 border border-slate-600 rounded-lg p-8 text-center">
+                  <div className="w-16 h-16 mx-auto mb-6 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-8 w-8 text-yellow-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">
+                    No fuel data available
+                  </h3>
+                  <p className="text-gray-400 mb-6">
+                    Add your first fuel type using the button below.
+                  </p>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="inline-flex items-center px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-medium rounded-lg transition duration-200"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5 mr-2"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Add Fuel Type
+                  </button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto -mx-4 sm:-mx-6">
+                  <div className="inline-block min-w-full align-middle sm:px-6 lg:px-8">
+                    <table className="min-w-full divide-y divide-slate-600">
+                      <thead className="bg-slate-700/50">
+                        <tr>
+                          <th
+                            scope="col"
+                            className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-300 cursor-pointer"
+                            onClick={() => requestSort("type")}
+                          >
+                            <div className="flex items-center">
+                              Fuel Type
+                              <span className="ml-2">
+                                {getSortIndicator("type")}
+                              </span>
+                            </div>
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-3 py-3.5 text-left text-sm font-semibold text-gray-300 cursor-pointer"
+                            onClick={() => requestSort("price")}
+                          >
+                            <div className="flex items-center">
+                              Current Price
+                              <span className="ml-2">
+                                {getSortIndicator("price")}
+                              </span>
+                            </div>
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-3 py-3.5 text-left text-sm font-semibold text-gray-300 cursor-pointer hidden sm:table-cell"
+                            onClick={() => requestSort("updatedAt")}
+                          >
+                            <div className="flex items-center">
+                              Last Updated
+                              <span className="ml-2">
+                                {getSortIndicator("updatedAt")}
+                              </span>
+                            </div>
+                          </th>
+                          <th
+                            scope="col"
+                            className="px-3 py-3.5 text-right text-sm font-semibold text-gray-300"
+                          >
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-700">
+                        {sortedAndFilteredData().map((item) => (
+                          <tr
+                            key={item.id}
+                            className={`hover:bg-slate-700/50 transition-colors duration-150 ${
+                              selectedFuelType === item.id
+                                ? "bg-slate-700/30"
+                                : ""
+                            }`}
+                            onClick={() => setSelectedFuelType(item.id)}
+                          >
+                            <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white">
+                              <div className="flex items-center">
+                                <div className="h-8 w-8 flex-shrink-0 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4 text-yellow-400"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M5 5a3 3 0 015-2.236A3 3 0 0114.83 6H16a2 2 0 110 4h-5V9a1 1 0 10-2 0v1H4a2 2 0 110-4h1.17C5.06 5.687 5 5.35 5 5zm4 1V5a1 1 0 10-1 1h1zm3 0a1 1 0 10-1-1v1h1z"
+                                      clipRule="evenodd"
+                                    />
+                                    <path d="M9 11H3v5a2 2 0 002 2h4v-7zM11 18h4a2 2 0 002-2v-5h-6v7z" />
+                                  </svg>
+                                </div>
+                                {item.type}
+                              </div>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-500/30 text-yellow-300">
+                                Rs. {parseFloat(item.price).toFixed(2)} /L
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300 hidden sm:table-cell">
+                              {new Date(item.updatedAt).toLocaleString()}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-4 text-sm text-right">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(item);
+                                  }}
+                                  className="text-yellow-400 hover:text-yellow-300 bg-yellow-500/10 hover:bg-yellow-500/20 p-1.5 rounded-lg transition-all"
+                                  title="Edit"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                    />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(item.id);
+                                  }}
+                                  className="text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 p-1.5 rounded-lg transition-all"
+                                  title="Delete"
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Empty search results */}
+                    {filterText && sortedAndFilteredData().length === 0 && (
+                      <div className="text-center py-10">
+                        <p className="text-gray-400">
+                          No fuel types match your search criteria.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
-            </div>
-          ) : fuelData.length === 0 ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-8 text-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-16 w-16 text-amber-400 mx-auto mb-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                No fuel data available
+          {/* Charts Section */}
+          <div className="space-y-6">
+            {/* Bar Chart */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                Fuel Prices Comparison
               </h3>
-              <p className="text-gray-600 mb-4">
-                Add your first fuel station using the button above.
-              </p>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg transition duration-200"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 mr-2"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Add Fuel Station
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto -mx-4 sm:-mx-6">
-              <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead>
-                    <tr>
-                      <th
-                        scope="col"
-                        className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 cursor-pointer"
-                        onClick={() => requestSort("name")}
-                      >
-                        <div className="flex items-center">
-                          Station Name
-                          <span className="ml-2">
-                            {getSortIndicator("name")}
-                          </span>
-                        </div>
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 cursor-pointer"
-                        onClick={() => requestSort("address")}
-                      >
-                        <div className="flex items-center">
-                          Address
-                          <span className="ml-2">
-                            {getSortIndicator("address")}
-                          </span>
-                        </div>
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 cursor-pointer"
-                        onClick={() => requestSort("price")}
-                      >
-                        <div className="flex items-center">
-                          Fuel Price
-                          <span className="ml-2">
-                            {getSortIndicator("price")}
-                          </span>
-                        </div>
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3.5 text-right text-sm font-semibold text-gray-900"
-                      >
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 bg-white">
-                    {sortedAndFilteredData().map((item) => (
-                      <tr
-                        key={item.id}
-                        className="hover:bg-amber-50 transition-colors duration-150"
-                      >
-                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900">
-                          <div className="flex items-center">
-                            <div className="h-8 w-8 flex-shrink-0 rounded-full bg-amber-100 flex items-center justify-center mr-3">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4 text-amber-600"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1z"
-                                  clipRule="evenodd"
-                                />
-                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                                <path
-                                  fillRule="evenodd"
-                                  d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                            {item.name}
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-600">
-                          {item.address}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Rs. {parseFloat(item.price).toFixed(2)} /L
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm text-right">
-                          <button
-                            onClick={() => handleEdit(item)}
-                            className="text-amber-600 hover:text-amber-900 font-medium mr-3"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="text-red-600 hover:text-red-900 font-medium"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {/* Empty search results */}
-                {filterText && sortedAndFilteredData().length === 0 && (
-                  <div className="text-center py-10">
-                    <p className="text-gray-500">
-                      No stations match your search criteria.
-                    </p>
+              <div className="h-64">
+                {fuelData.length > 0 ? (
+                  <Bar data={barChartData} options={barChartOptions} />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    No data available for chart
                   </div>
                 )}
               </div>
             </div>
-          )}
+
+            {/* Line Chart */}
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                {selectedFuelType
+                  ? `Price History for ${
+                      fuelData.find((item) => item.id === selectedFuelType)
+                        ?.type || "Selected Fuel"
+                    }`
+                  : "Select a fuel type to view price history"}
+              </h3>
+              <div className="h-64">
+                {selectedFuelType && priceHistory.length > 0 ? (
+                  <Line data={lineChartData} options={lineChartOptions} />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    {selectedFuelType
+                      ? "No price history available"
+                      : "Please select a fuel type from the table"}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Stats cards */}
         {fuelData.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Average Price Card */}
-            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-yellow-500">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-green-100 mr-4">
+                <div className="p-3 rounded-full bg-yellow-500/20 mr-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-green-600"
+                    className="h-6 w-6 text-yellow-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -552,10 +829,10 @@ function Dashboard({ handleLogout }) {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-400">
                     Average Price
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl md:text-2xl font-bold text-white">
                     Rs.{" "}
                     {(
                       fuelData.reduce(
@@ -569,12 +846,12 @@ function Dashboard({ handleLogout }) {
             </div>
 
             {/* Lowest Price Card */}
-            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-green-500">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-blue-100 mr-4">
+                <div className="p-3 rounded-full bg-green-500/20 mr-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-blue-600"
+                    className="h-6 w-6 text-green-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -588,10 +865,10 @@ function Dashboard({ handleLogout }) {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-400">
                     Lowest Price
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl md:text-2xl font-bold text-white">
                     Rs.{" "}
                     {Math.min(
                       ...fuelData.map((item) => parseFloat(item.price))
@@ -602,12 +879,12 @@ function Dashboard({ handleLogout }) {
             </div>
 
             {/* Highest Price Card */}
-            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-red-500">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-red-100 mr-4">
+                <div className="p-3 rounded-full bg-red-500/20 mr-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-red-600"
+                    className="h-6 w-6 text-red-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -621,10 +898,10 @@ function Dashboard({ handleLogout }) {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-400">
                     Highest Price
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl md:text-2xl font-bold text-white">
                     Rs.{" "}
                     {Math.max(
                       ...fuelData.map((item) => parseFloat(item.price))
@@ -635,12 +912,12 @@ function Dashboard({ handleLogout }) {
             </div>
 
             {/* Total Stations Card */}
-            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-amber-500">
+            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-blue-500">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-amber-100 mr-4">
+                <div className="p-3 rounded-full bg-blue-500/20 mr-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-amber-600"
+                    className="h-6 w-6 text-blue-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -654,10 +931,10 @@ function Dashboard({ handleLogout }) {
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-500">
+                  <p className="text-sm font-medium text-gray-400">
                     Total Stations
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-xl md:text-2xl font-bold text-white">
                     {fuelData.length}
                   </p>
                 </div>
@@ -665,6 +942,31 @@ function Dashboard({ handleLogout }) {
             </div>
           </div>
         )}
+
+        {/* Footer */}
+        <footer className="mt-12 text-center text-gray-400 text-sm py-6">
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-yellow-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="font-medium text-yellow-400">TaxiMeter</span>
+            <span>Fuel Price Manager</span>
+          </div>
+          <p>
+            © {new Date().getFullYear()} TaxiMeter Services. All rights
+            reserved.
+          </p>
+        </footer>
       </main>
     </div>
   );
