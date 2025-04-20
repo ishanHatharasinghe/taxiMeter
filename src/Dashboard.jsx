@@ -1150,9 +1150,9 @@ function Dashboard({ handleLogout }) {
               <div className="flex items-center space-x-4">
                 <div className="bg-gradient-to-r from-amber-300 to-yellow-600 rounded-full p-3 shadow-lg transform transition-transform hover:scale-105">
                   <img
-                    src="/icon.png"
+                    src="/src/assets/icon.png"
                     alt="Icon"
-                    className="h-9 w-9 object-contain"
+                    className="h-9 w-9 object-contain text-gray-900"
                   />
                 </div>
 
