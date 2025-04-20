@@ -806,137 +806,336 @@ function Dashboard({ handleLogout }) {
           </div>
         </div>
 
-        {/* Stats cards */}
+        {/* Main Stats Section */}
         {fuelData.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {/* Average Price Card */}
-            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-yellow-500">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-yellow-500/20 mr-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-yellow-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+          <div className="space-y-4">
+            {/* Primary Stats Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Current Average Price Card */}
+              <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-yellow-500">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-yellow-500/20 mr-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-yellow-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">
+                      Avg. Price
+                    </p>
+                    <p className="text-xl md:text-2xl font-bold text-white">
+                      Rs.{" "}
+                      {(
+                        fuelData.reduce(
+                          (sum, item) => sum + parseFloat(item.price),
+                          0
+                        ) / fuelData.length
+                      ).toFixed(2)}
+                      <span className="text-sm font-normal text-gray-400">
+                        {" "}
+                        /L
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Across {fuelData.length} fuel types
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-400">
-                    Average Price
-                  </p>
-                  <p className="text-xl md:text-2xl font-bold text-white">
-                    Rs.{" "}
-                    {(
-                      fuelData.reduce(
-                        (sum, item) => sum + parseFloat(item.price),
-                        0
-                      ) / fuelData.length
-                    ).toFixed(2)}
-                  </p>
+              </div>
+
+              {/* Price Range Card */}
+              <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-purple-500">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-purple-500/20 mr-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-purple-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">
+                      Price Range
+                    </p>
+                    <p className="text-xl md:text-2xl font-bold text-white">
+                      Rs.{" "}
+                      {Math.min(
+                        ...fuelData.map((item) => parseFloat(item.price))
+                      ).toFixed(2)}{" "}
+                      -{" "}
+                      {Math.max(
+                        ...fuelData.map((item) => parseFloat(item.price))
+                      ).toFixed(2)}
+                      <span className="text-sm font-normal text-gray-400">
+                        {" "}
+                        /L
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Difference: Rs.{" "}
+                      {(
+                        Math.max(
+                          ...fuelData.map((item) => parseFloat(item.price))
+                        ) -
+                        Math.min(
+                          ...fuelData.map((item) => parseFloat(item.price))
+                        )
+                      ).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Most Recent Update Card */}
+              <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-blue-500">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-blue-500/20 mr-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-blue-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">
+                      Last Updated
+                    </p>
+                    {(() => {
+                      const sortedByDate = [...fuelData].sort(
+                        (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)
+                      );
+                      const mostRecent = sortedByDate[0];
+                      const date = mostRecent
+                        ? new Date(mostRecent.updatedAt)
+                        : null;
+                      return (
+                        <>
+                          <p className="text-xl md:text-2xl font-bold text-white">
+                            {date
+                              ? date.toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric"
+                                })
+                              : "N/A"}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {date
+                              ? `${
+                                  mostRecent.type
+                                } at ${date.toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}`
+                              : "No updates"}
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Price Trend Card */}
+              <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-green-500">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-green-500/20 mr-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-green-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">
+                      30-Day Trend
+                    </p>
+                    {(() => {
+                      const thirtyDaysAgo = new Date();
+                      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+                      const changes = fuelData
+                        .map((fuel) => {
+                          if (
+                            fuel.priceHistory &&
+                            fuel.priceHistory.length >= 2
+                          ) {
+                            const recent = fuel.priceHistory.slice(-1)[0];
+                            const old =
+                              fuel.priceHistory.find(
+                                (ph) => new Date(ph.date) <= thirtyDaysAgo
+                              ) || fuel.priceHistory[0];
+                            if (old && recent) {
+                              return (
+                                ((parseFloat(recent.price) -
+                                  parseFloat(old.price)) /
+                                  parseFloat(old.price)) *
+                                100
+                              );
+                            }
+                          }
+                          return 0;
+                        })
+                        .filter((change) => change !== 0);
+
+                      const avgChange =
+                        changes.length > 0
+                          ? changes.reduce((sum, change) => sum + change, 0) /
+                            changes.length
+                          : 0;
+
+                      const isPositive = avgChange > 0;
+                      const changeText = isPositive
+                        ? `+${avgChange.toFixed(1)}%`
+                        : `${avgChange.toFixed(1)}%`;
+
+                      return (
+                        <>
+                          <p
+                            className={`text-xl md:text-2xl font-bold ${
+                              isPositive ? "text-red-400" : "text-green-400"
+                            }`}
+                          >
+                            {isPositive ? "↑" : "↓"} {changeText}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {isPositive ? "Increase" : "Decrease"} in last 30
+                            days
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Lowest Price Card */}
-            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-green-500">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-green-500/20 mr-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-green-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-400">
-                    Lowest Price
-                  </p>
-                  <p className="text-xl md:text-2xl font-bold text-white">
-                    Rs.{" "}
-                    {Math.min(
-                      ...fuelData.map((item) => parseFloat(item.price))
-                    ).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Highest Price Card */}
-            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-red-500">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-red-500/20 mr-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-red-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-400">
-                    Highest Price
-                  </p>
-                  <p className="text-xl md:text-2xl font-bold text-white">
-                    Rs.{" "}
-                    {Math.max(
-                      ...fuelData.map((item) => parseFloat(item.price))
-                    ).toFixed(2)}
-                  </p>
+            {/* Secondary Stats Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Most Expensive Fuel */}
+              <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-red-500">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-red-500/20 mr-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-red-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">
+                      Most Expensive
+                    </p>
+                    {(() => {
+                      const maxPrice = Math.max(
+                        ...fuelData.map((item) => parseFloat(item.price))
+                      );
+                      const expensiveFuel = fuelData.find(
+                        (item) => parseFloat(item.price) === maxPrice
+                      );
+                      return (
+                        <>
+                          <p className="text-xl md:text-2xl font-bold text-white">
+                            {expensiveFuel?.type || "N/A"}
+                          </p>
+                          <p className="text-sm text-gray-400">
+                            Rs. {maxPrice.toFixed(2)} /L
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Total Stations Card */}
-            <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-blue-500">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-blue-500/20 mr-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-6 w-6 text-blue-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-400">
-                    Total Stations
-                  </p>
-                  <p className="text-xl md:text-2xl font-bold text-white">
-                    {fuelData.length}
-                  </p>
+              {/* Least Expensive Fuel */}
+              <div className="bg-slate-800/50 backdrop-blur rounded-xl shadow-md p-5 border-l-4 border-teal-500">
+                <div className="flex items-center">
+                  <div className="p-3 rounded-full bg-teal-500/20 mr-4">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-6 w-6 text-teal-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">
+                      Least Expensive
+                    </p>
+                    {(() => {
+                      const minPrice = Math.min(
+                        ...fuelData.map((item) => parseFloat(item.price))
+                      );
+                      const cheapFuel = fuelData.find(
+                        (item) => parseFloat(item.price) === minPrice
+                      );
+                      return (
+                        <>
+                          <p className="text-xl md:text-2xl font-bold text-white">
+                            {cheapFuel?.type || "N/A"}
+                          </p>
+                          <p className="text-sm text-gray-400">
+                            Rs. {minPrice.toFixed(2)} /L
+                          </p>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -944,28 +1143,58 @@ function Dashboard({ handleLogout }) {
         )}
 
         {/* Footer */}
-        <footer className="mt-12 text-center text-gray-400 text-sm py-6">
-          <div className="flex items-center justify-center space-x-2 mb-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 text-yellow-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="font-medium text-yellow-400">TaxiMeter</span>
-            <span>Fuel Price Manager</span>
+        <footer className="mt-12 bg-gradient-to-br from-gray-950 to-gray-900 text-gray-200 py-10 rounded-xl shadow-xl">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-8">
+              {/* Logo and brand */}
+              <div className="flex items-center space-x-4">
+                <div className="bg-gradient-to-r from-amber-300 to-yellow-600 rounded-full p-3 shadow-lg transform transition-transform hover:scale-105">
+                  <img
+                    src="/src/assets/icon.png"
+                    alt="Icon"
+                    className="h-9 w-9 object-contain text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <h2 className="font-bold text-2xl text-white tracking-tight">
+                    TaxiMeter
+                  </h2>
+                  <p className="text-sm text-gray-400 font-light">
+                    Fuel Price Manager
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
+              <p className="text-sm text-gray-400">
+                © {new Date().getFullYear()} TaxiMeter. All rights reserved.
+              </p>
+              <a
+                href="https://ishanhatharasinghe.github.io/portfolio_web/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group text-amber-400 hover:text-amber-300 transition duration-300 font-medium text-sm flex items-center mt-4 md:mt-0"
+              >
+                <span>Designed by Ishan Hatharasinghe</span>
+                <svg
+                  className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  ></path>
+                </svg>
+              </a>
+            </div>
           </div>
-          <p>
-            © {new Date().getFullYear()} TaxiMeter Services. All rights
-            reserved.
-          </p>
         </footer>
       </main>
     </div>
