@@ -1169,7 +1169,7 @@ function Dashboard({ handleLogout }) {
 
             <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
               <p className="text-sm text-gray-400">
-                © {new Date().getFullYear()} TaxiMeter. All rights reserved.
+                © {new Date().getFullYear()} Fuel Price Manager
               </p>
               <a
                 href="https://ishanhatharasinghe.github.io/portfolio_web/"
@@ -1177,7 +1177,7 @@ function Dashboard({ handleLogout }) {
                 rel="noopener noreferrer"
                 className="group text-amber-400 hover:text-amber-300 transition duration-300 font-medium text-sm flex items-center mt-4 md:mt-0"
               >
-                <span>Designed by Ishan Hatharasinghe</span>
+                <span>All rights reserved Ishan Hatharasinghe </span>
                 <svg
                   className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-300"
                   fill="none"
